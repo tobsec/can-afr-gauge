@@ -56,6 +56,9 @@ void setup()
     // Setting pin 2 for /INT input
     pinMode(PWM_PIN, INPUT);
 
+    // Set PWM frequency for D3 & D11
+    TCCR2B = ( TCCR2B & (B11111000 | B00000001) );  // set timer 2 divisor to 1 for PWM frequency of 31372.55 Hz
+
     // CAN0.init_Mask(0, 1, 0x00FFFF00);                                // Init first mask...
     // CAN0.init_Filt(0, 1, 0x00FFEE00);                                // Init first filter...
     // CAN0.init_Filt(1, 1, 0x00FFDD00);                                // Init second filter...
