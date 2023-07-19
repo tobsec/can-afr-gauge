@@ -43,7 +43,7 @@ void setup()
     Serial.begin(115200u);
 
     // Init CAN
-    if ( CAN0.begin(MCP_STDEXT, CAN_500KBPS, MCP_16MHZ) == CAN_OK )
+    if ( CAN0.begin(MCP_STDEXT, CAN_500KBPS, MCP_8MHZ) == CAN_OK )
     {
         Serial.print("MCP2515 Init Okay!!\r\n");
     }
@@ -54,20 +54,20 @@ void setup()
     }
 
     // Setting pin 2 for /INT input
-    pinMode(PWM_PIN, INPUT);
+    pinMode(CAN_INT_PIN, INPUT);
 
     // Set PWM frequency for D3 & D11
-    TCCR2B = ( TCCR2B & (B11111000 | B00000001) );  // set timer 2 divisor to 1 for PWM frequency of 31372.55 Hz
+    TCCR2B = ( TCCR2B & B11111000 ) | B00000001;  // set timer 2 divisor to 1 for PWM frequency of 31372.55 Hz
 
-    // CAN0.init_Mask(0, 1, 0x00FFFF00);                                // Init first mask...
-    // CAN0.init_Filt(0, 1, 0x00FFEE00);                                // Init first filter...
-    // CAN0.init_Filt(1, 1, 0x00FFDD00);                                // Init second filter...
+    CAN0.init_Mask(0, 0, 0x07F00000);                                // Init first mask...
+    CAN0.init_Filt(0, 0, 0x01800000);                                // Init first filter...
+    // CAN0.init_Filt(1, 1, 0x00000180);                                // Init second filter...
 
-    // CAN0.init_Mask(1, 1, 0x00FFFF00);                                // Init second mask...
-    // CAN0.init_Filt(2, 1, 0x00FFBB00);                                // Init third filter...
-    // CAN0.init_Filt(3, 1, 0x00FFAA00);                                // Init fourth filter...
-    // CAN0.init_Filt(4, 1, 0x00FF8800);                                // Init fifth filter...
-    // CAN0.init_Filt(5, 1, 0x00FF7700);                                // Init sixth filter...
+    CAN0.init_Mask(1, 0, 0x07F00000);                                // Init second mask...
+    CAN0.init_Filt(2, 0, 0x01800000);                                // Init third filter...
+    // CAN0.init_Filt(3, 1, 0x00000000);                                // Init fourth filter...
+    // CAN0.init_Filt(4, 1, 0x00000000);                                // Init fifth filter...
+    // CAN0.init_Filt(5, 1, 0x00000000);                                // Init sixth filter...
 
     CAN0.setMode(MCP_NORMAL);                                // Change to normal mode to allow messages to be transmitted
 }
@@ -85,7 +85,7 @@ void checkCanReception(void)
     uint8_t rxBuf[8u];
 
     // If pin 2 is low, read receive buffer
-    if(!digitalRead(2))
+    if(!digitalRead(CAN_INT_PIN))
     {
         CAN0.readMsgBuf(&rxId, &len, rxBuf); // Read data: len = data length, buf = data byte(s)
 
@@ -135,11 +135,18 @@ void updateOutput(void)
         {
             // Sensor is valid, take highest (leanest) value for output
             // sensor[i].valid = true;
+            // Serial.print("Sensor ");
+            // Serial.print(i);
+            // Serial.print(" valid. Afr=");
+            // Serial.println(sensor[i].valueAfr);
             outputAfr = max(outputAfr, sensor[i].valueAfr); // Take highest (leanest) value for output
         }
         // else
         // {
         //     sensor[i].valid = false;
+        //     Serial.print("Sensor ");
+        //     Serial.print(i);
+        //     Serial.println(" invalid");
         // }
     }
 
@@ -159,6 +166,15 @@ void updateOutput(void)
           | 10 | 17.9 |
           |  0 | 20.0 |
           +----+------+
+
+          Test
+          | Lambda | AFR calc | AFR display |
+          | 0.75   | 11.03    | 11.1        |
+          | 0.80   | 11.76    | 11.9        |
+          | 0.85   | 12.50    | 12.5        |
+          | 0.90   | 13.23    | 13.3        |
+          | 0.95   | 13.97    | 14.1        |
+          | 1.00   | 14.70    | 14.7        |
         */
         analogWrite(PWM_PIN, pwmValue);
     }
