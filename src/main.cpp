@@ -110,64 +110,26 @@ void checkCanReception() {
   }
 }
 
-void updateOutput(void)
-{
-    float outputAfr = 0.0f;
+void updateOutput() {
+  float outputAfr = 0.0f;
+  bool validSensorFound = false;
 
-    // Check all sensors for invalid value or timeout
-    for (uint8_t i=0u; i<NUM_SENSORS; i++)
-     {
-        if ((sensor[i].valueAfr != 0.0f) && (sensor[i].lastRx > (millis() - CAN_MSG_TIMEOUT_MS)))
-        {
-            // Sensor is valid, take highest (leanest) value for output
-            // sensor[i].valid = true;
-            // Serial.print("Sensor ");
-            // Serial.print(i);
-            // Serial.print(" valid. Afr=");
-            // Serial.println(sensor[i].valueAfr);
-            outputAfr = max(outputAfr, sensor[i].valueAfr); // Take highest (leanest) value for output
-        }
-        // else
-        // {
-        //     sensor[i].valid = false;
-        //     Serial.print("Sensor ");
-        //     Serial.print(i);
-        //     Serial.println(" invalid");
-        // }
+  // Check all sensors for valid value and timeout
+  for (uint8_t i = 0; i < NUM_SENSORS; i++) {
+    if (sensor[i].valueAfr != 0.0f && sensor[i].lastRx > (millis() - CAN_MSG_TIMEOUT_MS)) {
+      validSensorFound = true;
+      outputAfr = max(outputAfr, sensor[i].valueAfr);
     }
+  }
 
-
-    if (outputAfr != 0.0f)
-    {
-        // At least one sensor is valid, calculate output according to characteristic curve
-        uint8_t pwmValue = (uint8_t)(M * outputAfr + B);
-        /*
-          +----+------+
-          | y  |  x   |
-          +----+------+
-          | 49 | 10.1 |
-          | 40 | 11.9 |
-          | 30 | 13.9 |
-          | 20 | 15.9 |
-          | 10 | 17.9 |
-          |  0 | 20.0 |
-          +----+------+
-
-          Test
-          | Lambda | AFR calc | AFR display |
-          | 0.75   | 11.03    | 11.1        |
-          | 0.80   | 11.76    | 11.9        |
-          | 0.85   | 12.50    | 12.5        |
-          | 0.90   | 13.23    | 13.3        |
-          | 0.95   | 13.97    | 14.1        |
-          | 1.00   | 14.70    | 14.7        |
-        */
-        analogWrite(PWM_PIN, pwmValue);
-    }
-    else
-    {
-        // Error, no valid sensor
-        analogWrite(PWM_PIN, 0u);
-    }
-
+  if (validSensorFound) {
+    // Calculate output according to characteristic curve
+    uint8_t pwmValue = (uint8_t)(M * outputAfr + B);
+    analogWrite(PWM_PIN, pwmValue);
+  } else {
+    // Error, no valid sensor
+    analogWrite(PWM_PIN, 0);
+  }
 }
+
+
