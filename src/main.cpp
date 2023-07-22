@@ -32,6 +32,12 @@ typedef struct uego_t
     // boolean valid;
 } uego;
 
+// Definiere die Sensor-Indizes als Enumerationen
+enum SensorIndex {
+  SENSOR_0 = 0,
+  SENSOR_1 = 1
+};
+
 MCP_CAN CAN0(CAN_CS_PIN);
 uego sensor[NUM_SENSORS];
 
@@ -78,50 +84,30 @@ void loop()
     updateOutput();
 }
 
-void checkCanReception(void)
-{
-    unsigned long rxId;
-    uint8_t len = 0u;
-    uint8_t rxBuf[8u];
+void checkCanReception() {
+  unsigned long rxId;
+  uint8_t len = 0u;
+  uint8_t rxBuf[CAN_DATA_LEN];
 
-    // If pin 2 is low, read receive buffer
-    if(!digitalRead(CAN_INT_PIN))
-    {
-        CAN0.readMsgBuf(&rxId, &len, rxBuf); // Read data: len = data length, buf = data byte(s)
+  // Wenn Pin 2 LOW ist, lese den Empfangsbuffer
+  if (!digitalRead(CAN_INT_PIN)) {
+    // Lese Daten vom CAN-Bus: rxId = CAN-ID, len = Datenlänge, rxBuf = Datenbytes
+    CAN0.readMsgBuf(&rxId, &len, rxBuf);
 
-        if ( ( CAN_ID_0 == rxId ) &&
-             ( CAN_DATA_LEN == len ) )
-        {
-            // Interpret data e.g. Lambda 0.85 <-> 8500u <-> 0x 21 34
-            uint16_t lambdaInt = ((uint16_t)rxBuf[0] << 8) | rxBuf[1];
-            sensor[0u].valueLambda = 0.0001f * lambdaInt;
-            sensor[0u].valueAfr = sensor[0u].valueLambda * STOICH_AFR;
-            sensor[0u].lastRx = millis();
-        }
-        else if ( ( CAN_ID_1 == rxId ) &&
-                  ( CAN_DATA_LEN == len ) )
-        {
-            // Interpret data e.g. 0.85 -> 8500 -> 0x 21 34
-            uint16_t lambdaInt = ((uint16_t)rxBuf[0] << 8) | rxBuf[1];
-            sensor[1u].valueLambda = 0.0001f * lambdaInt;
-            sensor[1u].valueAfr = sensor[1u].valueLambda * STOICH_AFR;
-            sensor[1u].lastRx = millis();
-        }
+    // Überprüfe die CAN-ID und Datenlänge
+    if ((CAN_ID_0 == rxId || CAN_ID_1 == rxId) && CAN_DATA_LEN == len) {
+      // Interpretiere Daten als uint16-Wert
+      uint16_t lambdaInt = ((uint16_t)rxBuf[0] << 8) | rxBuf[1];
+      
+      // Wähle den richtigen Sensor anhand der CAN-ID aus
+      SensorIndex sensorIndex = (rxId == CAN_ID_0) ? SENSOR_0 : SENSOR_1;
 
-        // Serial.print("ID: ");
-        // Serial.print(rxId, HEX);
-        // Serial.print(" Data: ");
-        // for(int i = 0; i<len; i++)                     // Print each byte of the data
-        // {
-        //     if(rxBuf[i] < 0x10)                                // If data byte is less than 0x10, add a leading zero
-        //     {
-        //         Serial.print("0");
-        //     }
-        //     Serial.print(rxBuf[i], HEX);
-        //     Serial.print(" ");
-        // }
-        // Serial.println();
+      // Berechne Lambda und AFR-Werte
+      sensor[sensorIndex].valueLambda = 0.0001f * lambdaInt;
+      sensor[sensorIndex].valueAfr = sensor[sensorIndex].valueLambda * STOICH_AFR;
+      sensor[sensorIndex].lastRx = millis();
     }
+  }
 }
 
 void updateOutput(void)
