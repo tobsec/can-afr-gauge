@@ -15,7 +15,7 @@
 #define CAN_ID_0 0x180u
 #define CAN_ID_1 (CAN_ID_0 + 1u)
 #define CAN_DATA_LEN 8u
-#define CAN_MSG_TIMEOUT_MS 25u
+#define CAN_MSG_TIMEOUT_MS 250u
 
 // PWM characteristic curve
 #define M -5.0f    // Slope
@@ -24,12 +24,14 @@
 // Stoichiometric Air/Fuel Ratio
 #define STOICH_AFR 14.7f
 
+// Enable debug outputs on console
+#define ENABLE_DEBUG_OUTPUT
+
 typedef struct uego_t
 {
     float valueLambda;
     float valueAfr;
     unsigned long lastRx;
-    // boolean valid;
 } uego;
 
 MCP_CAN CAN0(CAN_CS_PIN);
@@ -43,7 +45,7 @@ void setup()
     Serial.begin(115200u);
 
     // Init CAN
-    if ( CAN0.begin(MCP_STDEXT, CAN_500KBPS, MCP_8MHZ) == CAN_OK )
+    if ( CAN0.begin(MCP_STDEXT, CAN_250KBPS, MCP_8MHZ) == CAN_OK )
     {
         Serial.print("MCP2515 Init Okay!!\r\n");
     }
@@ -127,6 +129,10 @@ void checkCanReception(void)
 void updateOutput(void)
 {
     float outputAfr = 0.0f;
+#ifdef ENABLE_DEBUG_OUTPUT
+    static boolean debugLastValidState[NUM_SENSORS] = { false }; // invalid
+    static float   debugLastAfr[NUM_SENSORS] = { 0.0f };
+#endif
 
     // Check all sensors for invalid value or timeout
     for (uint8_t i=0u; i<NUM_SENSORS; i++)
@@ -134,20 +140,35 @@ void updateOutput(void)
         if ((sensor[i].valueAfr != 0.0f) && (sensor[i].lastRx > (millis() - CAN_MSG_TIMEOUT_MS)))
         {
             // Sensor is valid, take highest (leanest) value for output
-            // sensor[i].valid = true;
-            // Serial.print("Sensor ");
-            // Serial.print(i);
-            // Serial.print(" valid. Afr=");
-            // Serial.println(sensor[i].valueAfr);
             outputAfr = max(outputAfr, sensor[i].valueAfr); // Take highest (leanest) value for output
+
+#ifdef ENABLE_DEBUG_OUTPUT
+            // Output valid state or Afr on change
+            if ((false == debugLastValidState[i]) ||
+                (sensor[i].valueAfr != debugLastAfr[i]))
+            {
+                Serial.print("Sensor ");
+                Serial.print(i);
+                Serial.print(" valid. Afr=");
+                Serial.println(sensor[i].valueAfr);
+                debugLastValidState[i] = true;
+                debugLastAfr[i] = sensor[i].valueAfr;
+            }
         }
-        // else
-        // {
-        //     sensor[i].valid = false;
-        //     Serial.print("Sensor ");
-        //     Serial.print(i);
-        //     Serial.println(" invalid");
-        // }
+        else
+        {
+            // Output valid state on change
+            if (true == debugLastValidState[i])
+            {
+                Serial.print("Sensor ");
+                Serial.print(i);
+                Serial.println(" invalid");
+                debugLastValidState[i] = false;
+            }
+        }
+#else
+        }
+#endif
     }
 
 
